@@ -1,17 +1,18 @@
 package il.ac.technion.cs.softwaredesign
 
+import Library
 import java.util.concurrent.CompletableFuture
 
-class LibraryFake {
+class LibraryFake : Library, java.io.Serializable {
 
     private var map = mutableMapOf<String, ByteArray>()
 
-    fun write(key: String, value: ByteArray): CompletableFuture<Unit> {
+    override fun write(key: String, value: ByteArray): CompletableFuture<Unit> {
         map[key] = value
         return CompletableFuture.completedFuture(Unit)
     }
 
-    fun read(key: String): CompletableFuture<ByteArray?> {
+    override fun read(key: String): CompletableFuture<ByteArray?> {
         return CompletableFuture.completedFuture(map[key])
     }
 

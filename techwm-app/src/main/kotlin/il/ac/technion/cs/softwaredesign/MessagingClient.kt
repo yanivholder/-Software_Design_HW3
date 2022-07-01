@@ -26,11 +26,12 @@ fun serialize(value: Any): ByteArray {
  * A message sent by [fromUser].
  * [id] should be unique over all the messages of users of a MessagingClientFactory.
  */
-data class Message(val id: String, val fromUser: String, val message: String)
+data class Message(val id: String, val fromUser: String, val message: String) : java.io.Serializable
 
 typealias Inbox = Map<String, List<Message>>
 typealias MutableInbox = MutableMap<String, List<Message>>
-val inboxSuffix = "-inbox"
+const val inboxSuffix = "-inbox"
+const val IDCounter = "ID-counter"
 
 
 /**
@@ -38,18 +39,12 @@ val inboxSuffix = "-inbox"
  */
 class MessagingClient constructor(
     private val library: Library,
-    private val username: String,
-    private val password: String
-    ) {
+    val username: String,
+    private val password: String,
+    var loggedList: MutableList<String>
+    ) : java.io.Serializable {
 
-    private fun amIOnline(): Boolean = TODO()
-
-    private fun isUserExists(username: String): CompletableFuture<Boolean> {
-        this.library.read(username)
-            .thenApply {res ->
-                res != null
-            }
-    }
+    private fun amILoggedIn(): Boolean = this.loggedList.contains(this.username)
 
     /**
      * Login with a given password. A successfully logged-in user is considered "online". If the user is already
@@ -57,14 +52,25 @@ class MessagingClient constructor(
      *
      * @throws IllegalArgumentException If the password was wrong (according to the factory that created the instance)
      */
-    fun login(password: String): CompletableFuture<Unit> = TODO("Implement me!")
+    fun login(password: String): CompletableFuture<Unit> {
+        if (password != this.password) throw IllegalArgumentException()
+        if (!this.amILoggedIn()) {
+            this.loggedList.add(this.username)
+        }
+        return CompletableFuture.completedFuture(Unit)
+    }
 
     /**
      * Log out of the system. After logging out, a user is no longer considered online.
      *
      * @throws IllegalArgumentException If the user was not previously logged in.
      */
-    fun logout(): CompletableFuture<Unit> = TODO("Implement me!")
+    fun logout(): CompletableFuture<Unit> {
+        if (!this.amILoggedIn()) throw IllegalArgumentException()
+
+        this.loggedList.remove(this.username)
+        return CompletableFuture.completedFuture(Unit)
+    }
 
     /**
      * Get online (logged in) users.
@@ -72,7 +78,13 @@ class MessagingClient constructor(
      * @throws PermissionException If the user is not logged in.
      * @return A list of usernames which are currently online.
      */
-    fun onlineUsers(): CompletableFuture<List<String>> = TODO("Implement me!")
+    fun onlineUsers(): CompletableFuture<List<String>> {
+        if (!this.amILoggedIn()) throw PermissionException()
+
+        return CompletableFuture.completedFuture(
+            this.loggedList.toList()
+        )
+    }
 
     /**
      * Get messages currently in your inbox from other users.
@@ -81,7 +93,7 @@ class MessagingClient constructor(
      * @throws PermissionException If the user is not logged in.
      */
     fun inbox(): CompletableFuture<Inbox> {
-        if (!this.amIOnline()) throw PermissionException()
+        if (!this.amILoggedIn()) throw PermissionException()
 
         return this.library.read("${this.username}$inboxSuffix")
             .thenApply { res ->
@@ -99,26 +111,31 @@ class MessagingClient constructor(
      * @throws IllegalArgumentException If the target user does not exist, or message contains more than 120 characters.
      */
     fun sendMessage(toUsername: String, message: String): CompletableFuture<Unit> {
-        if (!this.amIOnline()) throw PermissionException()
+        if (!this.amILoggedIn()) throw PermissionException()
         if (message.length > 120) throw IllegalArgumentException()
-        return this.isUserExists(toUsername)
-            .thenApply {userExists ->
-                if (!userExists) throw IllegalArgumentException()
-            }.thenCompose { this.library.read("$toUsername$inboxSuffix") }
+
+        return this.library.read("$toUsername$inboxSuffix")
             .thenCompose { serializedInbox ->
-                val mutableInbox = deserialize(serializedInbox!!) as MutableInbox
-                val mutableInboxList = if (mutableInbox.containsKey(this.username)) {
+                if (serializedInbox == null) throw IllegalArgumentException()
+
+                val mutableInbox = deserialize(serializedInbox) as MutableInbox
+                val mutableInboxFromUser = if (mutableInbox.containsKey(this.username)) {
                     mutableInbox[this.username]!!.toMutableList()
                 } else {
                     mutableListOf()
                 }
-                mutableInboxList.add(Message(
-                    id = "0", // TODO: change
-                    fromUser = this.username,
-                    message = message
-                ))
-                mutableInbox[this.username] = mutableInboxList.toList()
-                this.library.write(key = "$toUsername$inboxSuffix", value = serialize(mutableInbox))
+                this.library.read(IDCounter).thenCompose { serializedCounter ->
+                    if (serializedCounter == null) exitProcess(1) // BUG
+
+                    val counter = deserialize(serializedCounter) as Int
+                    mutableInboxFromUser.add(Message(
+                        id = counter.toString(),
+                        fromUser = this.username,
+                        message = message
+                    ))
+                    mutableInbox[this.username] = mutableInboxFromUser.toList()
+                    this.library.write(key = "$toUsername$inboxSuffix", value = serialize(mutableInbox))
+                }
             }
     }
 
@@ -129,12 +146,13 @@ class MessagingClient constructor(
      * @throws IllegalArgumentException If a message with the given [id] does not exist
      */
     fun deleteMessage(id: String): CompletableFuture<Unit> {
-        if (!this.amIOnline()) throw PermissionException()
+        if (!this.amILoggedIn()) throw PermissionException()
 
         return this.library.read("${this.username}$inboxSuffix")
             .thenCompose { serializedInbox ->
                 if (serializedInbox == null) throw IllegalArgumentException()
-                val mutableInbox = deserialize(serializedInbox!!) as MutableInbox
+
+                val mutableInbox = deserialize(serializedInbox) as MutableInbox
                 val newMutableInbox = mutableInbox.mapValues {
                         v -> v.value.filter { message -> message.id != id }
                 }.toMutableMap()
@@ -170,20 +188,30 @@ interface MessagingClientFactory {
 }
 
 class MessagingClientFactoryImpl @Inject constructor(private val library: Library) : MessagingClientFactory {
-
+    private val loggedList: MutableList<String> = mutableListOf()
     init {
-        // Make sure all users are logged off
+        // Making sure there is a persistent ID counter
+        this.library.read(IDCounter).thenCompose { serializedCounter ->
+            if (serializedCounter == null) this.library.write(IDCounter, serialize(0))
+            else CompletableFuture.completedFuture(Unit)
+        }.get()
     }
+
     override fun get(username: String, password: String): CompletableFuture<MessagingClient> {
         return this.library.read(username)
             .thenCompose { res ->
                 if (res != null) {
-                    CompletableFuture.completedFuture(deserialize(res) as MessagingClient)
+                    val client = deserialize(res) as MessagingClient
+                    client.loggedList = this.loggedList
+                    // Making sure the current user is logged off
+                    this.loggedList.remove(client.username)
+                    CompletableFuture.completedFuture(client)
                 } else {
                     val client = MessagingClient(
                         library = this.library,
                         username = username,
-                        password = password
+                        password = password,
+                        loggedList = this.loggedList
                     )
                     this.library.write(key = username, value = serialize(client))
                         .thenCompose {
