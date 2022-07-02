@@ -1,6 +1,7 @@
 package il.ac.technion.cs.softwaredesign
 
-import library.implementation.ILibWrapper
+import il.ac.technion.cs.softwaredesign.ILibWrapper
+import library.implementation.Library
 import java.util.concurrent.CompletableFuture
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -38,7 +39,7 @@ const val IDCounter = "ID-counter"
  * This is a class implementing messaging between users
  */
 class MessagingClient constructor(
-    var library: ILibWrapper,
+    var library: Library,
     val username: String,
     private val password: String,
     var loggedList: MutableList<String>
@@ -189,7 +190,7 @@ interface MessagingClientFactory {
     fun get(username: String, password: String): CompletableFuture<MessagingClient>
 }
 
-class MessagingClientFactoryImpl @Inject constructor(private val library: ILibWrapper) : MessagingClientFactory {
+class MessagingClientFactoryImpl @Inject constructor(private val library: Library) : MessagingClientFactory {
     private val loggedList: MutableList<String> = mutableListOf()
     init {
         // Making sure there is a persistent ID counter

@@ -1,10 +1,9 @@
 package library.implementation
 
 import il.ac.technion.cs.softwaredesign.storage.SecureStorage
-import java.io.Serializable
 import java.util.concurrent.CompletableFuture
 
-interface IBasicStorageManager : Serializable {
+interface IBasicStorageManager {
     /**
      * Store the [data] in the database with [key].
      *
