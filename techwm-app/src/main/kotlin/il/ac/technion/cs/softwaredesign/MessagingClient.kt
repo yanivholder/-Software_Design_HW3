@@ -29,6 +29,8 @@ fun serialize(value: Any): ByteArray {
  */
 data class Message(val id: String, val fromUser: String, val message: String) : java.io.Serializable
 
+data class MessagingClientData(val username: String, val password: String) : java.io.Serializable
+
 typealias Inbox = Map<String, List<Message>>
 typealias MutableInbox = MutableMap<String, List<Message>>
 const val inboxSuffix = "-inbox"
@@ -43,7 +45,7 @@ class MessagingClient constructor(
     val username: String,
     private val password: String,
     var loggedList: MutableList<String>
-    ) : java.io.Serializable {
+    ) {
 
     private fun amILoggedIn(): Boolean = this.loggedList.contains(this.username)
 
@@ -204,12 +206,15 @@ class MessagingClientFactoryImpl @Inject constructor(private val library: Librar
         return this.library.read(username)
             .thenCompose { res ->
                 if (res != null) {
-                    val client = deserialize(res) as MessagingClient
-                    client.loggedList = this.loggedList
-                    client.library = this.library
+                    val clientData = deserialize(res) as MessagingClientData
                     // Making sure the current user is logged off
-                    this.loggedList.remove(client.username)
-                    CompletableFuture.completedFuture(client)
+                    this.loggedList.remove(username)
+                    CompletableFuture.completedFuture(MessagingClient(
+                        library = this.library,
+                        username = clientData.username,
+                        password = clientData.password,
+                        loggedList = this.loggedList
+                    ))
                 } else {
                     val client = MessagingClient(
                         library = this.library,
@@ -217,7 +222,7 @@ class MessagingClientFactoryImpl @Inject constructor(private val library: Librar
                         password = password,
                         loggedList = this.loggedList
                     )
-                    this.library.write(key = username, value = serialize(client))
+                    this.library.write(key = username, value = serialize(MessagingClientData(username, password)))
                         .thenCompose {
                             this.library.write(
                                 key = "$username$inboxSuffix",
