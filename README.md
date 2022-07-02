@@ -8,8 +8,11 @@
 
 
 ### Implementation Summary
-We added a wrapper to the chosen library to make it more user-friendly and less coupled
-The message client is pretty straight forward
+- We added a wrapper to the chosen library to make it more user-friendly and less coupled. The wrapper is crucial becuase this library does not encapsulate SecureStorage as we want from the higher level library layer. so the wrapper hold a SecureStorage instance so we get an encapsulating library.
+- We changed the External Library's Module since it requires binding to stuff like "loan manager" which are irrelevant.
+- We removed irrelevant files from the library which are for previous assignements becuase they add uneeded API
+- We picked this library (although all abobve changes were needed) because it works, while some others did not pass our tests.
+- The message client is pretty straight forward
 
 ### Testing Summary
 - Tested the logic of client messaging like we tested our logic in previous assignments, 

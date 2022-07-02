@@ -12,10 +12,8 @@ import java.util.concurrent.CompletableFuture
 
 class StorageModule : KotlinModule() {
     override fun configure() {
-//        bind<IBasicStorageManager>().to<BasicStorageManager>()
 //        install(SecureStorageModule())
 
-        bind<SecureStorage>().to<SecureStorageFake>()
         bind<Library>().to<LibraryImp>()
     }
 
@@ -23,6 +21,17 @@ class StorageModule : KotlinModule() {
 //    fun provideSecureStorage(secureStorageFactory: SecureStorageFactory): CompletableFuture<SecureStorage> {
 //        return secureStorageFactory.open(ByteArray(0))
 //    }
+
+    @Provides
+    fun provideSecureStorage(): CompletableFuture<SecureStorage> {
+        return CompletableFuture.completedFuture(SecureStorageFake())
+    }
+
+    @Provides
+    fun provideBasicStorageManager(): IBasicStorageManager {
+        return BasicStorageManager()
+    }
+
 
 
 }

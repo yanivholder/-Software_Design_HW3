@@ -1,6 +1,5 @@
 package il.ac.technion.cs.softwaredesign
 
-import il.ac.technion.cs.softwaredesign.ILibWrapper
 import library.implementation.Library
 import java.util.concurrent.CompletableFuture
 import java.io.ByteArrayInputStream
