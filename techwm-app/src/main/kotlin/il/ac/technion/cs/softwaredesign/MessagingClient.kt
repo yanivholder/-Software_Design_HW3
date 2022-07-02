@@ -38,7 +38,7 @@ const val IDCounter = "ID-counter"
  * This is a class implementing messaging between users
  */
 class MessagingClient constructor(
-    private val library: Library,
+    var library: Library,
     val username: String,
     private val password: String,
     var loggedList: MutableList<String>
@@ -134,7 +134,8 @@ class MessagingClient constructor(
                         message = message
                     ))
                     mutableInbox[this.username] = mutableInboxFromUser.toList()
-                    this.library.write(key = "$toUsername$inboxSuffix", value = serialize(mutableInbox))
+                    this.library.write(key = IDCounter, value = serialize(counter + 1))
+                        .thenCompose { this.library.write(key = "$toUsername$inboxSuffix", value = serialize(mutableInbox)) }
                 }
             }
     }
@@ -153,14 +154,15 @@ class MessagingClient constructor(
                 if (serializedInbox == null) throw IllegalArgumentException()
 
                 val mutableInbox = deserialize(serializedInbox) as MutableInbox
-                val newMutableInbox = mutableInbox.mapValues {
+                var newMutableInbox = mutableInbox.mapValues {
                         v -> v.value.filter { message -> message.id != id }
                 }.toMutableMap()
+                newMutableInbox = newMutableInbox.filter { entry -> entry.value.isNotEmpty() }.toMutableMap()
                 // Check if a message with the given id erased
                 if (mutableInbox == newMutableInbox) throw IllegalArgumentException()
                 this.library.write(
                     key = "${this.username}$inboxSuffix",
-                    value = serialize(mutableInbox)
+                    value = serialize(newMutableInbox)
                 )
             }
     }
@@ -203,6 +205,7 @@ class MessagingClientFactoryImpl @Inject constructor(private val library: Librar
                 if (res != null) {
                     val client = deserialize(res) as MessagingClient
                     client.loggedList = this.loggedList
+                    client.library = this.library
                     // Making sure the current user is logged off
                     this.loggedList.remove(client.username)
                     CompletableFuture.completedFuture(client)

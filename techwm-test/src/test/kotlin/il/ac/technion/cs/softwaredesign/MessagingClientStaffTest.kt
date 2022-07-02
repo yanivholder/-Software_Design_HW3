@@ -3,9 +3,12 @@ package il.ac.technion.cs.softwaredesign
 import com.google.inject.Guice
 import com.natpryce.hamkrest.assertion.assertThat
 import com.natpryce.hamkrest.equalTo
+import com.natpryce.hamkrest.isA
 import dev.misfitlabs.kotlinguice4.getInstance
 
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import java.util.concurrent.CompletionException
 
 class MessagingClientStaffTest {
     private val injector = Guice.createInjector(MessagingClientModule())
