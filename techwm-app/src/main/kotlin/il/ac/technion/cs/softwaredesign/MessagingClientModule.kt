@@ -1,7 +1,7 @@
 package il.ac.technion.cs.softwaredesign
 
-import Library
 import dev.misfitlabs.kotlinguice4.KotlinModule
+import Library
 
 class MessagingClientModule: KotlinModule() {
     override fun configure() {

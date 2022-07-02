@@ -16,6 +16,7 @@ class StorageModule : KotlinModule() {
         bind<ILoansManager>().to<LoansManager>()
         bind<IBooksManager>().to<BooksManager>()
         bind<IBasicStorageManager>().to<BasicStorageManager>()
+        bind<ILibWrapper>.to(LibWrapper)
     }
     @Provides @Singleton @UsersStorage
     fun provideUsersStorage(storageFactory: SecureStorageFactory)
@@ -36,5 +37,9 @@ class StorageModule : KotlinModule() {
     fun provideLoansStorage(storageFactory: SecureStorageFactory)
             : @LoansStorage CompletableFuture<SecureStorage> {
         return storageFactory.open(Constants.LOANS_DB.toByteArray());
+    }
+    @Provides
+    fun provideSecureStorage(secureStorageFactory: SecureStorageFactory): CompletableFuture<SecureStorage> {
+        return secureStorageFactory.open(ByteArray(0))
     }
 }
